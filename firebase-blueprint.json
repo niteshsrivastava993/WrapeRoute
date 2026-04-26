@@ -1,0 +1,89 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Represents a consumer or brand manager.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "ecoCoins": { "type": "number" },
+        "role": { "type": "string", "enum": ["consumer", "brand_manager", "admin"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "email", "ecoCoins", "role", "createdAt"]
+    },
+    "WrapperScan": {
+      "title": "WrapperScan",
+      "description": "A scanned plastic wrapper submission.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "brand": { "type": "string" },
+        "plasticType": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "verified", "rejected"] },
+        "location": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" }
+          }
+        },
+        "imageHash": { "type": "string" },
+        "binId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "brand", "plasticType", "status", "imageHash", "createdAt"]
+    },
+    "SmartBin": {
+      "title": "SmartBin",
+      "description": "IoT-enabled waste collection bin.",
+      "type": "object",
+      "properties": {
+        "locationName": { "type": "string" },
+        "location": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" }
+          }
+        },
+        "fillLevel": { "type": "number" },
+        "capacity": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "full", "maintenance"] },
+        "lastPickupAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["locationName", "location", "fillLevel", "capacity", "status"]
+    },
+    "Brand": {
+      "title": "Brand",
+      "description": "FMCG Brand tracking EPR compliance.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "eprTarget": { "type": "number" },
+        "eprAchieved": { "type": "number" },
+        "logoUrl": { "type": "string" }
+      },
+      "required": ["name", "eprTarget", "eprAchieved"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles and wallet."
+    },
+    "/scans/{scanId}": {
+      "schema": "WrapperScan",
+      "description": "MLP wrapper scans."
+    },
+    "/bins/{binId}": {
+      "schema": "SmartBin",
+      "description": "IoT bin statuses."
+    },
+    "/brands/{brandId}": {
+      "schema": "Brand",
+      "description": "Brand EPR dashboards."
+    }
+  }
+}

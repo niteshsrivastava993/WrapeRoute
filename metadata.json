@@ -1,0 +1,6 @@
+{
+  "name": "WrapRoute AI",
+  "description": "Transforming zero-value plastics into trackable assets through AI, IoT, and Agentic Logistics.",
+  "requestFramePermissions": ["camera", "geolocation"],
+  "majorCapabilities": ["AI Image Analysis", "Real-time Dashboards", "IoT Tracking"]
+}

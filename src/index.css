@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+@theme {
+  --font-mono: 'JetBrains Mono', 'Courier New', Courier, monospace;
+  --font-sans: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  
+  --color-bg: #090A0B;
+  --color-surface: #141518;
+  --color-border: #27272A;
+  --color-emerald: #10B981;
+  --color-muted: #71717A;
+}
+
+@layer base {
+  body {
+    @apply bg-bg text-white font-sans antialiased selection:bg-emerald/30;
+  }
+}
+
+.premium-card {
+  @apply bg-surface border border-border rounded-xl shadow-sm transition-all duration-200;
+}
+
+.premium-card:hover {
+  @apply border-emerald/20 shadow-lg shadow-black/50;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.9); }
+}
+
+.pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #27272A;
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #3F3F46;
+}
+
+.nav-item-active {
+  @apply bg-white/5 text-white border-r-2 border-emerald;
+}
+
+.nav-item-hover {
+  @apply hover:bg-white/[0.02] hover:text-white transition-colors duration-200;
+}

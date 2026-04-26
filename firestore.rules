@@ -1,0 +1,98 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 0.1 Global Helpers
+    function isSignedIn() { return request.auth != null; }
+    function isAdmin() { return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+
+    function isBrandManager() {
+      return isSignedIn() && (
+        request.auth.token.email == 'niteshsrivastav1808@gmail.com' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'brand_manager'
+      );
+    }
+
+    // 1. Users
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.name is string && data.name.size() <= 100 &&
+               data.email is string && data.email.size() <= 100 &&
+               data.ecoCoins is number && data.ecoCoins >= 0 &&
+               data.role in ['consumer', 'brand_manager', 'admin'] &&
+               data.createdAt is timestamp;
+      }
+
+      allow get: if isOwner(userId) || isAdmin() || isBrandManager();
+      allow create: if isOwner(userId) && 
+                      isValidUser(incoming()) && 
+                      (
+                        (request.auth.token.email == 'niteshsrivastav1808@gmail.com' && incoming().role == 'brand_manager') ||
+                        (incoming().role == 'consumer')
+                      ) &&
+                      incoming().ecoCoins == 0 &&
+                      incoming().createdAt == request.time;
+      
+      allow update: if (isOwner(userId) || isAdmin() || isBrandManager()) && isValidUser(incoming()) && (
+        // Action: Update Profile
+        (incoming().diff(existing()).affectedKeys().hasOnly(['name'])) ||
+        // Action: Earn Coins
+        (isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly(['ecoCoins'])) ||
+        // Action: Admin/Brand Manager update
+        ((isAdmin() || isBrandManager()) && incoming().diff(existing()).affectedKeys().hasOnly(['ecoCoins', 'role']))
+      );
+    }
+
+    // 2. Scans
+    match /scans/{scanId} {
+      function isValidScan(data) {
+        return data.userId is string && isValidId(data.userId) &&
+               data.brand is string && data.brand.size() <= 64 &&
+               data.status in ['pending', 'verified', 'rejected'] &&
+               data.imageHash is string && data.imageHash.size() <= 128 &&
+               data.createdAt is timestamp;
+      }
+
+      allow get: if isSignedIn() && (isOwner(existing().userId) || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      
+      allow create: if isSignedIn() && 
+                      isValidScan(incoming()) && 
+                      incoming().userId == request.auth.uid &&
+                      incoming().status in ['pending', 'verified'] &&
+                      incoming().createdAt == request.time;
+
+      allow update: if isAdmin() && isValidScan(incoming()) && 
+                      incoming().diff(existing()).affectedKeys().hasOnly(['status']);
+    }
+
+    // 3. Bins
+    match /bins/{binId} {
+      function isValidBin(data) {
+        return data.locationName is string &&
+               data.fillLevel is number && data.fillLevel >= 0 &&
+               data.capacity is number && data.capacity > 0 &&
+               data.status in ['active', 'full', 'maintenance'];
+      }
+
+      allow read: if isSignedIn();
+      allow create, delete: if isAdmin() || isBrandManager();
+      allow update: if (isAdmin() || isBrandManager()) && isValidBin(incoming()) && 
+                      incoming().diff(existing()).affectedKeys().hasOnly(['fillLevel', 'status', 'lastPickupAt']);
+    }
+
+    // 4. Brands
+    match /brands/{brandId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isBrandManager();
+    }
+  }
+}
