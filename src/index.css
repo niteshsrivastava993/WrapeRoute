@@ -59,3 +59,32 @@
 .nav-item-hover {
   @apply hover:bg-white/[0.02] hover:text-white transition-colors duration-200;
 }
+
+@keyframes scan {
+  from { top: 0; }
+  to { top: 100%; }
+}
+
+@keyframes scan-line {
+  0% { top: 0%; }
+  100% { top: 100%; }
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+.animate-scan {
+  position: absolute;
+  animation: scan 2s linear infinite;
+}
+
+.scan-line {
+  position: absolute;
+  animation: scan-line 3s linear infinite;
+}
+
+.animate-breathe {
+  animation: breathe 3s ease-in-out infinite;
+}

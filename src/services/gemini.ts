@@ -1,6 +1,7 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY as string });
+const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 export interface WrapperAnalysis {
   brand: string;
@@ -10,41 +11,28 @@ export interface WrapperAnalysis {
 }
 
 export async function analyzeWrapper(base64Image: string): Promise<WrapperAnalysis> {
-  const model = "gemini-3-flash-preview";
-  
   const prompt = `Analyze this image of a plastic wrapper. 
   Identify the brand if visible.
   Determine the type of plastic (Rigid, Flexible, or Mixed).
   Identify the physical state of the wrapper (Crushed, Open, or Sealed).
-  Provide a confidence score between 0 and 1.`;
-
-  const response = await ai.models.generateContent({
-    model,
-    contents: [
-      {
-        parts: [
-          { inlineData: { data: base64Image.split(',')[1] || base64Image, mimeType: "image/jpeg" } },
-          { text: prompt }
-        ]
-      }
-    ],
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          brand: { type: Type.STRING },
-          plasticType: { type: Type.STRING, enum: ["Rigid", "Flexible", "Mixed"] },
-          physicalState: { type: Type.STRING, enum: ["Crushed", "Open", "Sealed"] },
-          confidence: { type: Type.NUMBER }
-        },
-        required: ["brand", "plasticType", "physicalState", "confidence"]
-      }
-    }
-  });
+  Return a JSON object with keys: brand, plasticType, physicalState, confidence.`;
 
   try {
-    return JSON.parse(response.text);
+    const result = await model.generateContent([
+      {
+        inlineData: {
+          data: base64Image.split(',')[1] || base64Image,
+          mimeType: "image/jpeg"
+        }
+      },
+      prompt
+    ]);
+
+    const response = await result.response;
+    const text = response.text();
+    // Clean up potential markdown formatting
+    const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    return JSON.parse(jsonStr);
   } catch (e) {
     console.error("Failed to parse Gemini response:", e);
     return {

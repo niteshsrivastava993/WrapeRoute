@@ -1,6 +1,5 @@
 import React from 'react';
 import { LogOut, User as UserIcon, Menu, Globe, Shield } from 'lucide-react';
-import { auth } from '../lib/firebase';
 
 export function Layout({ children, user, profile }: { children: React.ReactNode, user: any, profile: any }) {
   return (

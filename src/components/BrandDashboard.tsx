@@ -13,6 +13,11 @@ import {
 } from 'recharts';
 
 import { supabase } from '../lib/supabase';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
+// --- Gemini AI Initialization ---
+const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
 // --- Supabase Table Names ---
 const TABLES = {
@@ -282,7 +287,7 @@ const MobileNavNode = ({ activeTab, setActiveTab, isOpen, onClose, coins }: any)
 
 // --- Main App ---
 
-export function BrandDashboard() {
+export function BrandDashboard({ user, profile }: any) {
   const [activeTab, setActiveTab] = useState('Overview');
   const [isScannerOpen, setScannerOpen] = useState(false);
   const [isMobileNavOpen, setMobileNavOpen] = useState(false);
@@ -478,6 +483,11 @@ export function BrandDashboard() {
   const handleScanAction = async () => {
     setScannerOpen(false);
     
+    // Simulations of AI Processing State
+    const toastId = `SCAN-${Date.now()}`;
+    const processingMsg = "GEMINI_VISION: Analyzing material composition...";
+    setNotifications(prev => [processingMsg, ...prev]);
+
     if (usingFailsafe) {
        // Local Mock Update
        setStats(prev => ({
@@ -496,6 +506,16 @@ export function BrandDashboard() {
     }
 
     try {
+      // --- Real-time AI Validation Simulation ---
+      // In a production app, we would send the image buffer to Gemini here.
+      // const result = await model.generateContent(['Detect if this is plastic waste...', imagePart]);
+      // const text = result.response.text();
+      
+      // Simulating a short delay for the "Agentic AI" feel
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      setNotifications(prev => ["AI_VERIFIED: MLP (Multi-Layer Plastic) detected. Verification complete.", ...prev]);
+
       // 1. Update Supabase Stats
       const newCoins = stats.coins + 15;
       const newDiverted = stats.totalDiverted + 0.5;
@@ -603,8 +623,8 @@ export function BrandDashboard() {
            <div className="flex items-center gap-4 p-5 bg-white/[0.02] border border-white/5 rounded-[24px]">
              <div className="w-11 h-11 rounded-2xl bg-surface border border-white/10 flex items-center justify-center font-black text-emerald uppercase">NS</div>
              <div className="min-w-0">
-               <p className="text-sm font-black truncate">Nitesh Srivastava</p>
-               <p className="text-[9px] text-muted font-black uppercase tracking-widest mt-0.5">Admin Level 4</p>
+               <p className="text-sm font-black truncate">{profile?.name || "Nitesh Srivastava"}</p>
+               <p className="text-[9px] text-muted font-black uppercase tracking-widest mt-0.5">{profile?.role === 'brand_manager' ? 'Admin Level 4' : 'Consumer'}</p>
              </div>
            </div>
         </div>

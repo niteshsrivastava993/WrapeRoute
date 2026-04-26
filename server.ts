@@ -3,7 +3,7 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import multer from "multer";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -36,33 +36,29 @@ async function startServer() {
         throw new Error("GEMINI_API_KEY is not configured");
       }
 
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      
       const prompt = "Analyze this image carefully. 1. Is it a multi-layered plastic (MLP) food wrapper? 2. What is the brand (e.g., Lays, Nestle, Kurkure)? 3. Is the wrapper crushed or intact? Return strictly in JSON format with keys: 'is_mlp_wrapper' (boolean), 'brand' (string), 'condition' (string).";
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: [
-          { text: prompt },
-          {
-            inlineData: {
-              mimeType: req.file.mimetype,
-              data: req.file.buffer.toString("base64"),
-            },
+      const result = await model.generateContent([
+        {
+          inlineData: {
+            mimeType: req.file.mimetype,
+            data: req.file.buffer.toString("base64"),
           },
-        ],
-      });
+        },
+        prompt,
+      ]);
 
-      let text = response.text || "";
+      const response = await result.response;
+      let text = response.text() || "";
       text = text.trim();
       
       // Clean up markdown markers if present
-      if (text.startsWith("```json")) {
-        text = text.substring(7, text.length - 3).trim();
-      } else if (text.startsWith("```")) {
-        text = text.substring(3, text.length - 3).trim();
-      }
-
-      const data = JSON.parse(text);
+      const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      
+      const data = JSON.parse(jsonStr);
 
       if (data.is_mlp_wrapper) {
         res.json({

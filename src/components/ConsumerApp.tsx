@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, where, onSnapshot, addDoc, serverTimestamp, updateDoc, doc, increment } from 'firebase/firestore';
+import { supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Camera, MapPin, Wallet, History, Trash2, CheckCircle2, 
@@ -21,16 +20,35 @@ export function ConsumerApp({ user, profile }: { user: any, profile: any }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    const scansQuery = query(collection(db, 'scans'), where('userId', '==', user.uid));
-    const unsubscribeScans = onSnapshot(scansQuery, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-      setScans(docs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
-    }, (err) => handleFirestoreError(err, OperationType.LIST, 'scans'));
+    fetchScans();
+
+    // Supabase real-time for scans
+    const channel = supabase
+      .channel('scans-changes')
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'scans',
+        filter: `userId=eq.${user.id}`
+      }, (payload) => {
+        setScans(prev => [payload.new, ...prev]);
+      })
+      .subscribe();
 
     return () => {
-      unsubscribeScans();
+      supabase.removeChannel(channel);
     };
-  }, [user.uid]);
+  }, [user.id]);
+
+  const fetchScans = async () => {
+    const { data, error } = await supabase
+      .from('scans')
+      .select('*')
+      .eq('userId', user.id)
+      .order('created_at', { ascending: false });
+    
+    if (data) setScans(data);
+  };
 
   const startCamera = async () => {
     try {
@@ -72,26 +90,27 @@ export function ConsumerApp({ user, profile }: { user: any, profile: any }) {
     if (!analysis) return;
     
     try {
-      await addDoc(collection(db, 'scans'), {
-        userId: user.uid,
+      await supabase.from('scans').insert({
+        userId: user.id,
         brand: analysis.brand,
         plasticType: analysis.plasticType,
         status: 'verified',
         imageHash: btoa(Math.random().toString()).substring(0, 16),
-        createdAt: serverTimestamp(),
+        created_at: new Date().toISOString(),
         location: { lat: 26.8467, lng: 80.9462 },
         bin: "Bin #02 - Campus Cafeteria"
       });
 
-      await updateDoc(doc(db, 'users', user.uid), {
-        ecoCoins: increment(15)
-      });
+      await supabase
+        .from('profiles')
+        .update({ eco_coins: (profile?.eco_coins || 0) + 15 })
+        .eq('id', user.id);
 
       setCapturedImage(null);
       setAnalysis(null);
       stopCamera();
     } catch (err) {
-      handleFirestoreError(err, OperationType.CREATE, 'scans');
+      console.error("Error submitting scan:", err);
     }
   };
 
@@ -142,10 +161,13 @@ export function ConsumerApp({ user, profile }: { user: any, profile: any }) {
               </nav>
 
               <button 
-                onClick={() => auth.signOut()}
-                className="mt-auto flex items-center gap-4 p-4 text-red-500 font-medium hover:bg-red-50 rounded-xl transition-colors"
+                onClick={() => window.location.reload()}
+                className="mt-auto flex items-center gap-4 p-4 text-emerald-500 font-medium hover:bg-emerald-50 rounded-xl transition-colors"
               >
-                Sign Out
+                <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+                  <Database size={16} />
+                </div>
+                Refresh Data
               </button>
             </motion.div>
           </>
@@ -173,7 +195,7 @@ export function ConsumerApp({ user, profile }: { user: any, profile: any }) {
                 <Menu className="w-6 h-6" />
               </button>
               <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center border-2 border-white shadow-sm overflow-hidden ring-1 ring-slate-100">
-                {user.photoURL ? <img src={user.photoURL} alt="User" /> : <div className="text-azure"><UserIcon /></div>}
+                {user.user_metadata?.avatar_url ? <img src={user.user_metadata.avatar_url} alt="User" /> : <div className="text-azure"><UserIcon /></div>}
               </div>
             </div>
           </div>
@@ -187,7 +209,7 @@ export function ConsumerApp({ user, profile }: { user: any, profile: any }) {
                 </div>
                 <div>
                   <h3 className="text-3xl font-bold text-slate-900 flex items-baseline gap-1">
-                    {profile?.ecoCoins || 0} <span className="text-[10px] font-bold text-slate-300 uppercase">Coins</span>
+                    {profile?.eco_coins || 0} <span className="text-[10px] font-bold text-slate-300 uppercase">Coins</span>
                   </h3>
                 </div>
               </div>
@@ -201,7 +223,7 @@ export function ConsumerApp({ user, profile }: { user: any, profile: any }) {
                 </div>
                 <div>
                   <h3 className="text-3xl font-bold text-slate-900 leading-none">
-                    {((profile?.ecoCoins || 0) * 0.2).toFixed(2)}
+                    {((profile?.eco_coins || 0) * 0.2).toFixed(2)}
                   </h3>
                 </div>
               </div>
@@ -395,7 +417,7 @@ export function ConsumerApp({ user, profile }: { user: any, profile: any }) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-[9px] font-bold py-0.5 px-2 bg-emerald-100 text-emerald-700 rounded-lg uppercase tracking-wide">Validated</span>
-                    <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">{new Date(scan.createdAt?.seconds * 1000).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
+                    <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">{new Date(scan.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
                   </div>
                   <h5 className="font-bold text-slate-800 text-base truncate">
                     {scan.brand} - +15 Coins
